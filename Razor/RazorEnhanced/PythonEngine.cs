@@ -137,7 +137,48 @@ namespace RazorEnhanced
             CompilerOptions.Module |= ModuleOptions.Initialize;
         }
 
+        // EDIT-BEGIN: Mark
         public void Execute(String text, String path=null)
+        {
+            if (Engine == null) return;
+
+            //CACHE (should we?)
+            Text = text;
+            FilePath = path;
+
+            //LOAD code as text
+            if (text == null) return; // no text
+            if (Source == null)
+            {
+                Source = Engine.CreateScriptSourceFromString(text, path);
+                if (Source == null) return;
+            }
+
+            //COMPILE with OPTIONS
+            //PythonCompilerOptions in order to initialize Python modules correctly, without it the Python env is half broken
+            if (Compiled == null)
+            {
+                Compiled = Source.Compile(CompilerOptions);
+            }
+
+            //EXECUTE
+            Journal journal = Modules["Journal"] as Journal;
+            journal.Active = true;
+            if (Scope == null)
+            {
+                Scope = Engine.CreateScope();
+            }
+            Compiled.Execute(Scope);
+            journal.Active = false;
+
+            //DONT USE
+            //Execute directly, unless you are not planning to import external modules.
+            //Source.Execute(m_Scope);
+        }
+        // EDIT-END: Mark
+
+        // EDIT-BEGIN: Mark
+        public void Compile(String text, String path = null)
         {
             if (Engine == null) return;
 
@@ -154,16 +195,15 @@ namespace RazorEnhanced
             //PythonCompilerOptions in order to initialize Python modules correctly, without it the Python env is half broken
             Compiled = Source.Compile(CompilerOptions);
 
-            //EXECUTE
             Journal journal = Modules["Journal"] as Journal;
             journal.Active = true;
             Scope = Engine.CreateScope();
-            Compiled.Execute(Scope);
             journal.Active = false;
 
             //DONT USE
             //Execute directly, unless you are not planning to import external modules.
             //Source.Execute(m_Scope);
         }
+        // EDIT-END: Mark
     }
 }

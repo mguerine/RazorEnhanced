@@ -208,7 +208,122 @@ namespace RazorEnhanced
 				}
 			}
 
-            internal void ReadText(string fullpath)
+			public void AsyncCompile()
+			{
+				if (World.Player == null)
+					return;
+
+				try
+				{
+					string fullpath = Settings.GetFullPathForScript(m_Filename);
+					string ext = Path.GetExtension(fullpath);
+
+					if (ext.Equals(".cs", StringComparison.InvariantCultureIgnoreCase))
+					{
+						CSharpEngine csharpEngine = CSharpEngine.Instance;
+						bool compileErrors = csharpEngine.CompileFromFile(fullpath, true, out List<string> compileMessages, out Assembly assembly);
+
+						foreach (string str in compileMessages)
+						{
+							Misc.SendMessage(str);
+						}
+						if (compileErrors == true)
+						{
+							Stop();
+							return;
+						}
+						//csharpEngine.Execute(assembly);
+					}
+					else if (ext.Equals(".uos", StringComparison.InvariantCultureIgnoreCase))
+					{
+						// Using // only will be deprecated instead of //UOS
+						var text = System.IO.File.ReadAllLines(fullpath);
+						if ((text[0].Substring(0, 2) == "//") && text[0].Length < 5)
+						{
+							string message = "WARNING: // header for UOS scripts is going to be deprecated. Please use //UOS instead";
+							Misc.SendMessage(message);
+						}
+
+						UOSteamEngine uosteam = UOSteamEngine.Instance;
+						//uosteam.Execute(fullpath);
+					}
+					else
+					{
+						DateTime lastModified = System.IO.File.GetLastWriteTime(fullpath);
+						if (FileChangeDate < lastModified)
+						{
+							ReadText(fullpath);
+							Create(null);
+
+							// FileChangeDate update must be the last line of threads will messup (ex: mousewheel hotkeys)
+							FileChangeDate = System.IO.File.GetLastWriteTime(fullpath);
+						}
+
+						m_pe.Compile(m_Text);
+					}
+				}
+				catch (IronPython.Runtime.Exceptions.SystemExitException)
+				{
+					Stop();
+					// sys.exit - terminate the thread
+				}
+				catch (Exception ex)
+				{
+					if (ex is System.Threading.ThreadAbortException)
+						return;
+
+					string display_error = ex.Message;
+					if (m_pe != null && m_pe.Engine != null)
+					{
+						display_error = m_pe.Engine.GetService<ExceptionOperations>().FormatException(ex);
+					}
+					SendMessageScriptError("ERROR " + m_Filename + ":" + display_error.Replace("\n", " | "));
+
+					if (ScriptErrorLog) // enabled log of error
+					{
+						StringBuilder log = new StringBuilder();
+						log.Append(Environment.NewLine + "============================ START REPORT ============================ " + Environment.NewLine);
+
+						DateTime dt = DateTime.Now;
+						log.Append("---> Time: " + String.Format("{0:F}", dt) + Environment.NewLine);
+						log.Append(Environment.NewLine);
+
+						if (ex is SyntaxErrorException)
+						{
+							SyntaxErrorException se = ex as SyntaxErrorException;
+							log.Append("----> Syntax Error:" + Environment.NewLine);
+							log.Append("-> LINE: " + se.Line + Environment.NewLine);
+							log.Append("-> COLUMN: " + se.Column + Environment.NewLine);
+							log.Append("-> SEVERITY: " + se.Severity + Environment.NewLine);
+							log.Append("-> MESSAGE: " + se.Message + Environment.NewLine);
+						}
+						else
+						{
+							log.Append("----> Generic Error:" + Environment.NewLine);
+							log.Append(display_error);
+						}
+
+						log.Append(Environment.NewLine);
+						log.Append("============================ END REPORT ============================ ");
+						log.Append(Environment.NewLine);
+
+						try // For prevent crash in case of file are busy or inaccessible
+						{
+							File.AppendAllText(Assistant.Engine.RootPath + "\\" + m_Filename + ".ERROR", log.ToString());
+						}
+						catch { }
+						log.Clear();
+					}
+				}
+				finally
+				{
+					//
+
+					//
+				}
+			}
+
+			internal void ReadText(string fullpath)
             {
                 //string fullpath = Path.Combine(Assistant.Engine.RootPath, "Scripts", m_Filename);
                 if (File.Exists(fullpath))
@@ -716,6 +831,7 @@ namespace RazorEnhanced
 		{
 			foreach (EnhancedScript script in EnhancedScripts.Values.ToList())
 			{
+				script.AsyncCompile();
 				if (!script.IsRunning && script.AutoStart)
 					script.Start();
 			}

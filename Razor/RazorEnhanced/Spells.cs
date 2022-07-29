@@ -1,5 +1,6 @@
 using Assistant;
 using System.Collections.Generic;
+using System.Reflection;   // EDIT: Mark
 
 namespace RazorEnhanced
 {
@@ -59,8 +60,32 @@ namespace RazorEnhanced
             else
                 return false;
 
-            if (s != null)
-                s.OnCast(new CastSpellFromMacro((ushort)s.GetID()), wait);
+            // EDIT-BEGIN: Mark
+            if (Client.IsOSI)
+            {
+                if (s != null)
+                    s.OnCast(new CastSpellFromMacro((ushort)s.GetID()), wait);
+            }
+            else
+            {
+                // This mod is for anti-rubberbanding feature in my own modded CUO. See https://github.com/mguerine for more info
+                string TYPE = "ClassicUO.Game.GameActions";
+                MethodInfo _cast;
+                try
+                {
+                    _cast = Assistant.ClassicUOClient.CUOAssembly?.GetType(TYPE)?.GetMethod("CastSpellRE");
+                    if (_cast != null)
+                        ClassicUOClient.CUOActionQueue.Enqueue(() => { _cast.Invoke(null, new object[] { id }); });
+                }
+                catch
+                {
+                    // just do nothing  
+                }
+                if (s != null)
+                    s.OnCast(new CastSpellFromMacro((ushort)s.GetID()), wait);
+
+            }
+            // EDIT-END: Mark
             return true;
         }
 
@@ -749,6 +774,23 @@ namespace RazorEnhanced
             Assistant.Item item = FindUsedLayer();
             if (item != null)
             {
+                // EDIT-BEGIN: Mark
+                if (!Client.IsOSI)
+                {
+                    string TYPE = "ClassicUO.Game.GameActions";
+                    MethodInfo _interrupt;
+                    try
+                    {
+                        _interrupt = Assistant.ClassicUOClient.CUOAssembly?.GetType(TYPE)?.GetMethod("Interrupt");
+                        if(_interrupt != null)
+                            ClassicUOClient.CUOActionQueue.Enqueue(() => { _interrupt.Invoke(null, null); });
+                    }
+                    catch 
+                    {
+                        // just do nothing   
+                    }
+                }
+                // EDIT-END: Mark
                 Assistant.Client.Instance.SendToServerWait(new LiftRequest(item, 1));
                 Assistant.Client.Instance.SendToServerWait(new EquipRequest(item.Serial, Assistant.World.Player, item.Layer)); // Equippa
             }
