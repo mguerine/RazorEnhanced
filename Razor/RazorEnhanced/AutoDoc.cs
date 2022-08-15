@@ -873,6 +873,7 @@ namespace RazorEnhanced
                 typeof(Statics.TileInfo),
                 typeof(Sound),
                 typeof(CUO),
+                typeof(HotKeyEvent),
 
                 // API Agents
                 typeof(AutoLoot),
@@ -1259,7 +1260,7 @@ namespace RazorEnhanced
 
         private static string ComposeKey(string typeFullNameString, string memberNameString)
         {
-            string key = Regex.Replace(typeFullNameString, @"\[.*\]", string.Empty).Replace('+', '.');
+            string key = Regex.Replace(typeFullNameString, @"\[.*\]", "[]").Replace('+', '.');
             if (memberNameString != null)
             {
                 key += "." + memberNameString;

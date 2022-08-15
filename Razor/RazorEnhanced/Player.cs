@@ -165,10 +165,20 @@ namespace RazorEnhanced
         /// Get total Maximum Stamina Increase.
         /// </summary>
         public static int MaximumStaminaIncrease { get { return World.Player.MaximumStaminaIncrease; } }
+
         /// <summary>
-        /// Get total Maximum Mana Increase.
+        /// Display a fake tracking arrow
         /// </summary>
-        public static int MaximumManaIncrease { get { return World.Player.MaximumManaIncrease; } }
+        /// <param name="x">X coordinate.</param>
+        /// <param name="y">Y coordinate.</param>
+        /// <param name="display">True = On, False = off</param>
+        /// <param name="target">object serial targeted</param>
+        public static void TrackingArrow(ushort x, ushort y, bool display, uint target=0)
+        {
+            if (target == 0)
+                target = (uint)Player.Serial;
+            Client.Instance.SendToClient(new TrackingArrow(target, display, x, y));
+        }
 
 
         // Flags
@@ -1863,6 +1873,17 @@ namespace RazorEnhanced
         public static void ChatSay(int color, int msg)
         {
             ChatSay(color, msg.ToString());
+        }
+
+
+        // Game Message
+        /// <summary>
+        /// Send message in game using 1153 for color.
+        /// </summary>
+        /// <param name="msg">Message to send.</param>
+        public static void ChatSay(string msg)
+        {
+            ChatSay(1153, msg);
         }
 
 
